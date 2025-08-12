@@ -1,0 +1,54 @@
+FROM debian:bookworm-slim
+
+LABEL org.opencontainers.image.title="electron-builder-windows (Node 20)"
+LABEL org.opencontainers.image.source="https://github.com/MrUnknownDE/docker-nodejs-win"
+LABEL org.opencontainers.image.description="Linux container for building Windows Electron apps using electron-builder (Node 20)"
+LABEL maintainer="<you@example.com>"
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    WINEDEBUG=-all \
+    WINEDLLOVERRIDES="winemenubuilder.exe=d" \
+    # reduce noisy npm logs and enable corepack
+    NPM_CONFIG_LOGLEVEL=warn
+
+# 1) Basis-Tools + NodeSource prerequisites
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl gnupg2 dirmngr \
+ && rm -rf /var/lib/apt/lists/*
+
+# 2) Node.js 20 via NodeSource
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+ && apt-get update && apt-get install -y --no-install-recommends \
+    nodejs \
+ && corepack enable \
+ && rm -rf /var/lib/apt/lists/*
+
+# 3) 32-bit Arch für wine32 + alle Build-Dependencies
+RUN dpkg --add-architecture i386 \
+ && apt-get update && apt-get install -y --no-install-recommends \
+    # Build basics
+    build-essential python3 git file xz-utils zip p7zip-full fakeroot \
+    # electron-builder extras
+    icnsutils graphicsmagick rpm \
+    # Windows / signing toolchain
+    g++-mingw-w64 nsis osslsigncode \
+    # Wine & Mono
+    wine32 wine64 mono-complete \
+    # headless
+    xvfb fontconfig \
+ && rm -rf /var/lib/apt/lists/*
+
+# Optional: häufig genutzte global Tools (pnpm/yarn via corepack)
+# (corepack ist bereits enabled; Projekte können `packageManager` in package.json definieren)
+
+# Sanity check: Versionen
+RUN node -v && npm -v && npx --yes electron-builder --version || true \
+ && wine --version && mono --version && makensis -VERSION
+
+# Default Arbeitsverzeichnis
+WORKDIR /workspace
+
+# Hinweis: zum Bauen im CI:
+# - bind-mount/checkout dein Projekt nach /workspace
+# - npm ci && npm run dist -- --win
+CMD [ "bash" ]

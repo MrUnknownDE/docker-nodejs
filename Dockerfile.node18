@@ -1,0 +1,40 @@
+# Build image for Electron Windows builds (Node 18)
+FROM debian:bookworm-slim
+
+LABEL org.opencontainers.image.title="electron-builder-windows (Node 18)"
+LABEL org.opencontainers.image.source="https://github.com/MrUnknownDE/docker-nodejs-win"
+LABEL org.opencontainers.image.description="Linux container for building Windows Electron apps using electron-builder (Node 18)"
+LABEL maintainer="<you@example.com>"
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    WINEDEBUG=-all \
+    WINEDLLOVERRIDES="winemenubuilder.exe=d" \
+    NPM_CONFIG_LOGLEVEL=warn
+
+# 1) Basis-Tools + NodeSource prerequisites
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl gnupg2 dirmngr \
+ && rm -rf /var/lib/apt/lists/*
+
+# 2) Node.js 18 via NodeSource
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+ && apt-get update && apt-get install -y --no-install-recommends \
+    nodejs \
+ && corepack enable \
+ && rm -rf /var/lib/apt/lists/*
+
+# 3) 32-bit Arch für wine32 + alle Build-Dependencies
+RUN dpkg --add-architecture i386 \
+ && apt-get update && apt-get install -y --no-install-recommends \
+    build-essential python3 git file xz-utils zip p7zip-full fakeroot \
+    icnsutils graphicsmagick rpm \
+    g++-mingw-w64 nsis osslsigncode \
+    wine32 wine64 mono-complete \
+    xvfb fontconfig \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN node -v && npm -v && npx --yes electron-builder --version || true \
+ && wine --version && mono --version && makensis -VERSION
+
+WORKDIR /workspace
+CMD [ "bash" ]
