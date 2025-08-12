@@ -32,8 +32,8 @@ RUN dpkg --add-architecture i386 \
     icnsutils graphicsmagick rpm \
     # Windows / signing toolchain
     g++-mingw-w64 nsis osslsigncode \
-    # Wine & Mono
-    wine32 wine64 mono-complete \
+    # Wine & Mono (wichtig: 'wine' Metapackage dazu!)
+    wine wine32 wine64 mono-complete winbind cabextract \
     # headless
     xvfb fontconfig \
  && rm -rf /var/lib/apt/lists/*
@@ -42,8 +42,12 @@ RUN dpkg --add-architecture i386 \
 # (corepack ist bereits enabled; Projekte können `packageManager` in package.json definieren)
 
 # Sanity check: Versionen
-RUN node -v && npm -v && npx --yes electron-builder --version || true \
- && wine --version && mono --version && makensis -VERSION
+RUN node -v \
+ && npm -v \
+ && npx --yes electron-builder --version || true \
+ && (command -v wine >/dev/null && wine --version || wine64 --version) \
+ && mono --version \
+ && makensis -VERSION
 
 # Default Arbeitsverzeichnis
 WORKDIR /workspace

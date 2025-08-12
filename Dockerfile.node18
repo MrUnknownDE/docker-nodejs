@@ -26,15 +26,24 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
 # 3) 32-bit Arch für wine32 + alle Build-Dependencies
 RUN dpkg --add-architecture i386 \
  && apt-get update && apt-get install -y --no-install-recommends \
+    # Build basics
     build-essential python3 git file xz-utils zip p7zip-full fakeroot \
+    # electron-builder extras
     icnsutils graphicsmagick rpm \
+    # Windows / signing toolchain
     g++-mingw-w64 nsis osslsigncode \
-    wine32 wine64 mono-complete \
+    # Wine & Mono (wichtig: 'wine' Metapackage dazu!)
+    wine wine32 wine64 mono-complete winbind cabextract \
+    # headless
     xvfb fontconfig \
  && rm -rf /var/lib/apt/lists/*
 
-RUN node -v && npm -v && npx --yes electron-builder --version || true \
- && wine --version && mono --version && makensis -VERSION
+RUN node -v \
+ && npm -v \
+ && npx --yes electron-builder --version || true \
+ && (command -v wine >/dev/null && wine --version || wine64 --version) \
+ && mono --version \
+ && makensis -VERSION
 
 WORKDIR /workspace
 CMD [ "bash" ]
