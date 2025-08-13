@@ -1,58 +1,34 @@
-FROM debian:bookworm-slim
+FROM ubuntu:22.04
 
-LABEL org.opencontainers.image.title="electron-builder-windows (Node 20)"
-LABEL org.opencontainers.image.source="https://github.com/MrUnknownDE/docker-nodejs-win"
-LABEL org.opencontainers.image.description="Linux container for building Windows Electron apps using electron-builder (Node 20)"
-LABEL maintainer="<you@example.com>"
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    WINEDEBUG=-all \
-    WINEDLLOVERRIDES="winemenubuilder.exe=d" \
-    # reduce noisy npm logs and enable corepack
-    NPM_CONFIG_LOGLEVEL=warn
+ENV DEBIAN_FRONTEND=noninteractive
 
-# 1) Basis-Tools + NodeSource prerequisites
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl gnupg2 dirmngr \
- && rm -rf /var/lib/apt/lists/*
-
-# 2) Node.js 20 via NodeSource
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
- && apt-get update && apt-get install -y --no-install-recommends \
-    nodejs \
- && corepack enable \
- && rm -rf /var/lib/apt/lists/*
-
-# 3) 32-bit Arch für wine32 + alle Build-Dependencies
 RUN dpkg --add-architecture i386 \
- && apt-get update && apt-get install -y --no-install-recommends \
-    # Build basics
-    build-essential python3 git file xz-utils zip p7zip-full fakeroot \
-    # electron-builder extras
-    icnsutils graphicsmagick rpm \
-    # Windows / signing toolchain
-    g++-mingw-w64 nsis osslsigncode \
-    # Wine & Mono (wichtig: 'wine' Metapackage dazu!)
-    wine wine32 wine64 mono-complete winbind cabextract \
-    # headless
-    xvfb fontconfig \
- && rm -rf /var/lib/apt/lists/*
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+       ca-certificates curl gnupg \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && NODE_MAJOR=20 \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y nodejs \
+       # Wine & Mono
+    && apt-get install -y --no-install-recommends \
+       wine wine32 wine64 mono-complete winbind cabextract \
+       # AWS CLI
+       awscli \
+       # Other build essentials
+       build-essential python3 git file xz-utils zip p7zip-full fakeroot \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Optional: häufig genutzte global Tools (pnpm/yarn via corepack)
-# (corepack ist bereits enabled; Projekte können `packageManager` in package.json definieren)
+# Set up a working directory
+WORKDIR /project
 
-# Sanity check: Versionen
-RUN node -v \
- && npm -v \
- && npx --yes electron-builder --version || true \
- && (command -v wine >/dev/null && wine --version || wine64 --version) \
- && mono --version \
- && makensis -VERSION
+# (Optional) Install electron-builder globally in the image
+# This can sometimes help with pathing issues, but isn't strictly necessary
+# if it's in the project's devDependencies.
+RUN npm install -g electron-builder
 
-# Default Arbeitsverzeichnis
-WORKDIR /workspace
-
-# Hinweis: zum Bauen im CI:
-# - bind-mount/checkout dein Projekt nach /workspace
-# - npm ci && npm run dist -- --win
-CMD [ "bash" ]
+# Set the entrypoint to bash
+ENTRYPOINT ["/bin/bash"]
