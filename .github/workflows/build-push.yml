@@ -18,9 +18,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - dockerfile: Dockerfile.node22
+            short_tag: node22
+            latest: "true"
           - dockerfile: Dockerfile.node20
             short_tag: node20
-            latest: "true"
+            latest: "false"
           - dockerfile: Dockerfile.node18
             short_tag: node18
             latest: "false"
