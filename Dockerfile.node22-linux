@@ -18,12 +18,6 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
  && corepack enable \
  && rm -rf /var/lib/apt/lists/*
 
-# 2) Build- & Packaging-Deps (für electron-builder Linux Targets)
-#    - AppImage benötigt FUSE -> libfuse2
-#    - deb: dpkg, fakeroot
-#    - rpm: rpm
-#    - native modules: build-essential, python3, pkg-config, libudev-dev, libusb-1.0-0-dev, libsecret-1-dev
-#    - optional runtime libs für Tests/Headless-Runs
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential python3 git file xz-utils zip p7zip-full fakeroot \
     dpkg rpm libarchive-tools \
