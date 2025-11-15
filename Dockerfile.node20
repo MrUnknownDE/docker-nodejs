@@ -1,34 +1,43 @@
+# Electron Linux build image (Node 20) on Debian slim
 FROM debian:bookworm-slim
 
+LABEL org.opencontainers.image.title="electron-builder-linux (Node 20)"
+LABEL org.opencontainers.image.description="Container for building Linux Electron apps (AppImage, deb, rpm) using electron-builder (Node 20)"
+LABEL maintainer="me@johanneskr.de"
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+    NPM_CONFIG_LOGLEVEL=warn
 
-RUN dpkg --add-architecture i386 \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends \
-       ca-certificates curl gnupg \
-    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
-    && NODE_MAJOR=20 \
-    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
-    && apt-get update \
-    && apt-get install -y nodejs \
-       # Wine & Mono
-    && apt-get install -y --no-install-recommends \
-       wine wine32 wine64 mono-complete winbind cabextract \
-       # AWS CLI
-       awscli \
-       # Other build essentials
-       build-essential python3 git file xz-utils zip p7zip-full fakeroot \
-    && apt-get clean \
+# 1) Basis & Node 20 via NodeSource
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl gnupg2 dirmngr \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+ && apt-get update && apt-get install -y --no-install-recommends nodejs \
+ && corepack enable \
+ && rm -rf /var/lib/apt/lists/*
+
+# 2) Build- & Packaging-Deps (für electron-builder Linux Targets)
+#    - AppImage benötigt FUSE -> libfuse2
+#    - deb: dpkg, fakeroot
+#    - rpm: rpm
+#    - native modules: build-essential, python3, pkg-config, libudev-dev, libusb-1.0-0-dev, libsecret-1-dev
+#    - optional runtime libs für Tests/Headless-Runs
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential python3 git file xz-utils zip p7zip-full fakeroot \
+    dpkg rpm libarchive-tools \
+    libfuse2 \
+    pkg-config libudev-dev libusb-1.0-0-dev libsecret-1-dev \
+    xvfb fontconfig \
+    libx11-xcb1 libxss1 libasound2 libnss3 libgtk-3-0 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libdrm2 \
+    make gcc g++ build-essential clang libdbus-1-dev libgtk-3-dev \
+    libnotify-dev libasound2-dev libcap-dev libcups2-dev libxtst-dev \
+    libxss1 libnss3-dev gcc-multilib g++-multilib curl gperf bison python3-dbusmock \
     && rm -rf /var/lib/apt/lists/*
 
-# Set up a working directory
-WORKDIR /project
+# (Optional) Sanity-Check
+RUN node -v && npm -v && npx --yes electron-builder --version || true
 
-# (Optional) Install electron-builder globally in the image
-# This can sometimes help with pathing issues, but isn't strictly necessary
-# if it's in the project's devDependencies.
-RUN npm install -g electron-builder
-
-# Set the entrypoint to bash
-ENTRYPOINT ["/bin/bash"]
+WORKDIR /workspace
+CMD ["bash"]
