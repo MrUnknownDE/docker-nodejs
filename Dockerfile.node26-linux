@@ -1,0 +1,59 @@
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+ARG TARGETARCH
+
+RUN dpkg --print-architecture \
+    && echo "Building for TARGETARCH=${TARGETARCH}" \
+    # Grund-Setup
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+       ca-certificates curl gnupg \
+    # NodeSource-Repo
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+        | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && NODE_MAJOR=26 \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" \
+        > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install -y nodejs \
+    # Jetzt je nach Architektur unterschiedliche Pakete
+    && if [ "$TARGETARCH" = "amd64" ]; then \
+        echo "Enabling i386 and multilib toolchain for Windows builds"; \
+        dpkg --add-architecture i386; \
+        apt-get update; \
+        apt-get install -y --no-install-recommends \
+          wine wine32 wine64 mono-complete winbind cabextract \
+          awscli \
+          build-essential python3 git file xz-utils zip p7zip-full fakeroot \
+          dpkg rpm libarchive-tools \
+          libfuse2 \
+          pkg-config libudev-dev libusb-1.0-0-dev libsecret-1-dev \
+          xvfb fontconfig \
+          libx11-xcb1 libxss1 libasound2 libnss3 libgtk-3-0 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libdrm2 \
+          make gcc g++ clang libdbus-1-dev libgtk-3-dev \
+          libnotify-dev libasound2-dev libcap-dev libcups2-dev libxtst-dev \
+          libxss1 libnss3-dev gcc-multilib g++-multilib curl gperf bison python3-dbusmock; \
+      else \
+        echo "ARM build – no wine32 / multilib toolchain (no Windows builds here)"; \
+        apt-get install -y --no-install-recommends \
+          awscli \
+          build-essential python3 git file xz-utils zip p7zip-full fakeroot \
+          dpkg rpm libarchive-tools \
+          libfuse2 \
+          pkg-config libudev-dev libusb-1.0-0-dev libsecret-1-dev \
+          xvfb fontconfig \
+          libx11-xcb1 libxss1 libasound2 libnss3 libgtk-3-0 libatk-bridge2.0-0 libgbm1 libxkbcommon0 libdrm2 \
+          make gcc g++ clang libdbus-1-dev libgtk-3-dev \
+          libnotify-dev libasound2-dev libcap-dev libcups2-dev libxtst-dev \
+          libxss1 libnss3-dev curl gperf bison python3-dbusmock; \
+      fi \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /project
+
+RUN npm install -g electron-builder
+
+ENTRYPOINT ["/bin/bash"]
